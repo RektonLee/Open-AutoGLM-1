@@ -45,9 +45,22 @@ class DeviceFactory:
                 raise ValueError(f"Unknown device type: {self.device_type}")
         return self._module
 
-    def get_screenshot(self, device_id: str | None = None, timeout: int = 10):
-        """Get screenshot from device."""
-        return self.module.get_screenshot(device_id, timeout)
+    def get_screenshot(self, device_id: str | None = None, timeout: int = 10, quality: int | None = None, image_format: str | None = None):
+        """
+        Get screenshot from device.
+
+        Args:
+            device_id: Optional device ID for multi-device setups.
+            timeout: Timeout in seconds for screenshot operations.
+            quality: Image quality (0-100). If None, uses default from screenshot module.
+                     For JPEG: 0-100 (higher = better quality, larger file).
+                     For PNG: mapped to compression level 0-9.
+            image_format: Image format ("jpeg" or "png"). If None, uses default from screenshot module.
+
+        Returns:
+            Screenshot object containing base64 data and dimensions.
+        """
+        return self.module.get_screenshot(device_id, timeout, quality, image_format)
 
     def get_current_app(self, device_id: str | None = None) -> str:
         """Get current app name."""

@@ -1,3 +1,19 @@
+  python3 main.py \
+      --agent-version v2 \
+      --base-url http://172.18.74.41:8002/v1 \
+      --model qwen3 \
+      --apikey EMPTY \
+      "去帮我在美团点杯瑞幸咖啡（要附近评分最高的一家店），生椰拿铁"
+
+
+  python3 main.py \
+      --agent-version qwen35  \
+      --base-url http://172.18.74.251:8002/v1 \
+      --model Qwen3.5-4B \
+      --apikey EMPTY \
+      "去帮我在美团点杯瑞幸咖啡（要附近5km评分最高的一家店），生椰拿铁"
+
+
 # Open-AutoGLM
 
 [Readme in English](README_en.md)

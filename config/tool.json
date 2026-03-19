@@ -1,0 +1,230 @@
+[
+  {
+    "name": "TodoWrite",
+    "description": "Track multi-step tasks (3+). Skip trivial.\nStates: pending,in_progress,completed. Only ONE in_progress.\ncontent=imperative; activeForm=present continuous.\nComplete only if fully successful; if blocked keep in_progress and add subtask.",
+    "parameters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "todos": {
+          "type": "array",
+          "description": "todo list",
+          "items": {
+            "type": "object",
+            "properties": {
+              "content": { "type": "string", "minLength": 1 },
+              "status": {
+                "type": "string",
+                "enum": ["pending", "in_progress", "completed"]
+              },
+              "activeForm": { "type": "string", "minLength": 1 }
+            },
+            "required": ["content", "status", "activeForm"],
+            "additionalProperties": false
+          }
+        }
+      },
+      "required": ["todos"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "Skill",
+    "description": "Execute domain skill (/commit etc). Must call FIRST, not text.\nSkip call if <command-name> tag already present.\nSkills: wifi,calendar,sms,camera,gallery,contacts,audio,screen,bluetooth,battery,clock.",
+    "parameters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "skill": { "type": "string", "description": "skill name" },
+        "args": { "type": "string", "description": "optional args" }
+      },
+      "required": ["skill"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mcp__phone-use__tap",
+    "description": "tap [x,y]",
+    "parameters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "coordinate": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "[x,y]"
+        }
+      },
+      "required": ["coordinate"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mcp__phone-use__longpress",
+    "description": "long press [x,y]",
+    "parameters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "coordinate": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "[x,y]"
+        }
+      },
+      "required": ["coordinate"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mcp__phone-use__doubleclick",
+    "description": "double tap [x,y]",
+    "parameters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "coordinate": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "[x,y]"
+        }
+      },
+      "required": ["coordinate"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mcp__phone-use__type",
+    "description": "type text in focused field",
+    "parameters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "text": { "type": "string", "description": "text" }
+      },
+      "required": ["text"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mcp__phone-use__swipe",
+    "description": "swipe from [x,y]",
+    "parameters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "coordinate": {
+          "type": "array",
+          "items": { "type": "number" },
+          "description": "start [x,y]"
+        },
+        "direction": {
+          "type": "string",
+          "enum": ["up", "down", "left", "right"]
+        },
+        "distance": {
+          "type": "string",
+          "enum": ["short", "medium", "long"]
+        }
+      },
+      "required": ["coordinate", "direction", "distance"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mcp__phone-use__launch",
+    "description": "launch app by name",
+    "parameters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string", "description": "app name" }
+      },
+      "required": ["name"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mcp__phone-use__back",
+    "description": "press back",
+    "parameters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mcp__phone-use__home",
+    "description": "press home",
+    "parameters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mcp__phone-use__wait",
+    "description": "wait seconds",
+    "parameters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "seconds": { "type": "number", "description": "seconds" }
+      },
+      "required": ["seconds"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mcp__phone-use__take_screen_shot",
+    "description": "screenshot",
+    "parameters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {},
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mcp__phone-search__web_search",
+    "description": "web search",
+    "parameters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "query": { "type": "string", "description": "query" }
+      },
+      "required": ["query"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mcp__phone-search__web_fetch",
+    "description": "fetch webpage",
+    "parameters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "url": { "type": "string", "description": "url" }
+      },
+      "required": ["url"],
+      "additionalProperties": false
+    }
+  },
+  {
+    "name": "mcp__phone-api__execute_api",
+    "description": "call android api (read docs via Skill first)",
+    "parameters": {
+      "$schema": "https://json-schema.org/draft/2020-12/schema",
+      "type": "object",
+      "properties": {
+        "api_name": { "type": "string", "description": "api" },
+        "parameters": { "type": "object", "description": "params" }
+      },
+      "required": ["api_name"],
+      "additionalProperties": false
+    }
+  }
+]

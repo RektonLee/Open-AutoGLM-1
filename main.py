@@ -11,6 +11,9 @@ Environment Variables:
     PHONE_AGENT_API_KEY: API key for model authentication (default: EMPTY)
     PHONE_AGENT_MAX_STEPS: Maximum steps per task (default: 100)
     PHONE_AGENT_DEVICE_ID: ADB device ID for multi-device setups
+    PHONE_AGENT_KEEP_IMAGES: Number of recent images to keep in context (v2 only, default: 3)
+    PHONE_AGENT_MESSAGES_DIR: Directory to save messages (v2 only, default: output)
+    PHONE_AGENT_VERSION: Agent version (v1 or v2, default: v1)
 """
 
 import argparse
@@ -25,11 +28,17 @@ from openai import OpenAI
 from phone_agent import PhoneAgent
 from phone_agent.agent import AgentConfig
 from phone_agent.agent_ios import IOSAgentConfig, IOSPhoneAgent
+from phone_agent.agent_tool import AgentConfig as AgentConfigV2
+from phone_agent.agent_tool import PhoneAgentV2
+from phone_agent.agent_qwen3 import PhoneAgentQwen3
+from phone_agent.agent_qwen35 import PhoneAgentQwen35
+from phone_agent.model.client_qwen35 import ModelConfigQwen35
 from phone_agent.config.apps import list_supported_apps
 from phone_agent.config.apps_harmonyos import list_supported_apps as list_harmonyos_apps
 from phone_agent.config.apps_ios import list_supported_apps as list_ios_apps
 from phone_agent.device_factory import DeviceType, get_device_factory, set_device_type
 from phone_agent.model import ModelConfig
+from phone_agent.model.client_tool import ModelConfig as ModelConfigV2
 from phone_agent.xctest import XCTestConnection
 from phone_agent.xctest import list_devices as list_ios_devices
 
@@ -297,9 +306,10 @@ def check_model_api(base_url: str, model_name: str, api_key: str = "EMPTY") -> b
         client = OpenAI(base_url=base_url, api_key=api_key, timeout=30.0)
 
         # Use chat completion to test connectivity (more universally supported than /models)
+        # Note: For multimodal models, content must be an array format
         response = client.chat.completions.create(
             model=model_name,
-            messages=[{"role": "user", "content": "Hi"}],
+            messages=[{"role": "user", "content": [{"type": "text", "text": "Hi"}]}],
             max_tokens=5,
             temperature=0.0,
             stream=False,
@@ -512,6 +522,47 @@ Examples:
         choices=["adb", "hdc", "ios"],
         default=os.getenv("PHONE_AGENT_DEVICE_TYPE", "adb"),
         help="Device type: adb for Android, hdc for HarmonyOS, ios for iPhone (default: adb)",
+    )
+
+    parser.add_argument(
+        "--agent-version",
+        type=str,
+        choices=["v1", "v2", "qwen3", "qwen35"],
+        default=os.getenv("PHONE_AGENT_VERSION", "v1"),
+        help="Agent version: v1 for legacy prompt-based actions, v2 for GLM model, qwen3 for Qwen3 model, qwen35 for Qwen3.5 model (default: v1)",
+    )
+
+    parser.add_argument(
+        "--disable-stream",
+        action="store_true",
+        help="Disable streaming mode for model responses (v2 only)",
+    )
+
+    parser.add_argument(
+        "--save-messages",
+        action="store_true",
+        default=True,
+        help="Save conversation messages to JSON file after task completion (v2 only, default: enabled)",
+    )
+
+    parser.add_argument(
+        "--no-save-messages",
+        action="store_true",
+        help="Disable saving messages to file (v2 only)",
+    )
+
+    parser.add_argument(
+        "--messages-output-dir",
+        type=str,
+        default=os.getenv("PHONE_AGENT_MESSAGES_DIR", "output"),
+        help="Directory to save messages JSON files (v2 only, default: output)",
+    )
+
+    parser.add_argument(
+        "--keep-recent-images",
+        type=int,
+        default=int(os.getenv("PHONE_AGENT_KEEP_IMAGES", "3")),
+        help="Number of recent images to keep in context (v2 only, default: 3)",
     )
 
     parser.add_argument(
@@ -744,41 +795,135 @@ def main():
     if not check_model_api(args.base_url, args.model, args.apikey):
         sys.exit(1)
 
-    # Create configurations and agent based on device type
-    model_config = ModelConfig(
-        base_url=args.base_url,
-        model_name=args.model,
-        api_key=args.apikey,
-        lang=args.lang,
-    )
-
-    if device_type == DeviceType.IOS:
-        # Create iOS agent
-        agent_config = IOSAgentConfig(
-            max_steps=args.max_steps,
-            wda_url=args.wda_url,
-            device_id=args.device_id,
-            verbose=not args.quiet,
+    # Create configurations and agent based on device type and agent version
+    if args.agent_version == "v2":
+        # V2: Tool Calls version for GLM
+        model_config = ModelConfigV2(
+            base_url=args.base_url,
+            model_name=args.model,
+            api_key=args.apikey,
             lang=args.lang,
+            enable_stream=not args.disable_stream,  # Enable streaming by default
         )
 
-        agent = IOSPhoneAgent(
-            model_config=model_config,
-            agent_config=agent_config,
+        if device_type == DeviceType.IOS:
+            print("Error: V2 agent version is not supported for iOS devices yet.")
+            sys.exit(1)
+        else:
+            # Create Android/HarmonyOS agent (v2)
+            # Determine if messages should be saved
+            save_messages = not args.no_save_messages if hasattr(args, 'no_save_messages') else True
+
+            agent_config = AgentConfigV2(
+                max_steps=args.max_steps,
+                device_id=args.device_id,
+                verbose=not args.quiet,
+                lang=args.lang,
+                save_messages=save_messages,
+                messages_output_dir=args.messages_output_dir,
+                keep_recent_images=args.keep_recent_images,
+            )
+
+            agent = PhoneAgentV2(
+                model_config=model_config,
+                agent_config=agent_config,
+            )
+    elif args.agent_version == "qwen3":
+        # Qwen3: Standard tool calls format
+        model_config = ModelConfigV2(
+            base_url=args.base_url,
+            model_name=args.model,
+            api_key=args.apikey,
+            lang=args.lang,
+            enable_stream=not args.disable_stream,
         )
+
+        if device_type == DeviceType.IOS:
+            print("Error: Qwen3 agent version is not supported for iOS devices yet.")
+            sys.exit(1)
+        else:
+            # Create Android/HarmonyOS agent (qwen3)
+            agent_config = AgentConfigV2(
+                max_steps=args.max_steps,
+                device_id=args.device_id,
+                lang=args.lang,
+                verbose=not args.quiet,
+                save_messages=save_messages,
+                messages_output_dir=args.messages_output_dir,
+                keep_recent_images=args.keep_recent_images,
+            )
+
+            agent = PhoneAgentQwen3(
+                model_config=model_config,
+                agent_config=agent_config,
+            )
+    elif args.agent_version == "qwen35":
+        # Qwen3.5: Specialized version for Qwen3.5 model
+        model_config = ModelConfigQwen35(
+            base_url=args.base_url,
+            model_name=args.model,
+            api_key=args.apikey,
+            lang=args.lang,
+            enable_stream=not args.disable_stream,
+        )
+
+        if device_type == DeviceType.IOS:
+            print("Error: Qwen3.5 agent version is not supported for iOS devices yet.")
+            sys.exit(1)
+        else:
+            # Create Android/HarmonyOS agent (qwen35)
+            save_messages = not args.no_save_messages if hasattr(args, 'no_save_messages') else True
+
+            agent_config = AgentConfigV2(
+                max_steps=args.max_steps,
+                device_id=args.device_id,
+                verbose=not args.quiet,
+                lang=args.lang,
+                save_messages=save_messages,
+                messages_output_dir=args.messages_output_dir,
+                keep_recent_images=args.keep_recent_images,
+            )
+
+            agent = PhoneAgentQwen35(
+                model_config=model_config,
+                agent_config=agent_config,
+            )
     else:
-        # Create Android/HarmonyOS agent
-        agent_config = AgentConfig(
-            max_steps=args.max_steps,
-            device_id=args.device_id,
-            verbose=not args.quiet,
+        # V1: Legacy version
+        model_config = ModelConfig(
+            base_url=args.base_url,
+            model_name=args.model,
+            api_key=args.apikey,
             lang=args.lang,
         )
 
-        agent = PhoneAgent(
-            model_config=model_config,
-            agent_config=agent_config,
-        )
+        if device_type == DeviceType.IOS:
+            # Create iOS agent
+            agent_config = IOSAgentConfig(
+                max_steps=args.max_steps,
+                wda_url=args.wda_url,
+                device_id=args.device_id,
+                verbose=not args.quiet,
+                lang=args.lang,
+            )
+
+            agent = IOSPhoneAgent(
+                model_config=model_config,
+                agent_config=agent_config,
+            )
+        else:
+            # Create Android/HarmonyOS agent (v1)
+            agent_config = AgentConfig(
+                max_steps=args.max_steps,
+                device_id=args.device_id,
+                verbose=not args.quiet,
+                lang=args.lang,
+            )
+
+            agent = PhoneAgent(
+                model_config=model_config,
+                agent_config=agent_config,
+            )
 
     # Print header
     print("=" * 50)
@@ -787,11 +932,17 @@ def main():
     else:
         print("Phone Agent - AI-powered phone automation")
     print("=" * 50)
+    print(f"Agent Version: {args.agent_version.upper()}")
     print(f"Model: {model_config.model_name}")
     print(f"Base URL: {model_config.base_url}")
     print(f"Max Steps: {agent_config.max_steps}")
     print(f"Language: {agent_config.lang}")
     print(f"Device Type: {args.device_type.upper()}")
+
+    # Show streaming mode for v2, qwen3, and qwen35
+    if args.agent_version in ["v2", "qwen3", "qwen35"]:
+        stream_mode = "Enabled" if model_config.enable_stream else "Disabled"
+        print(f"Streaming Mode: {stream_mode}")
 
     # Show iOS-specific config
     if device_type == DeviceType.IOS:
@@ -819,9 +970,45 @@ def main():
 
     # Run with provided task or enter interactive mode
     if args.task:
+        # Execute the first task from command line
         print(f"\nTask: {args.task}\n")
         result = agent.run(args.task)
-        print(f"\nResult: {result}")
+        # For v2, result is already displayed in agent output
+        if args.agent_version == "v1":
+            print(f"\nResult: {result}")
+        else:
+            print()  # Add a newline for spacing
+
+        agent.reset()
+
+        # After completing the first task, enter interactive mode
+        print("\nTask completed. You can continue with more tasks or type 'quit' to exit.\n")
+
+        while True:
+            try:
+                task = input("Enter your task: ").strip()
+
+                if task.lower() in ("quit", "exit", "q"):
+                    print("Goodbye!")
+                    break
+
+                if not task:
+                    continue
+
+                print()
+                result = agent.run(task)
+                # For v2, result is already displayed in agent output
+                if args.agent_version == "v1":
+                    print(f"\nResult: {result}\n")
+                else:
+                    print()  # Just add a newline for spacing
+                agent.reset()
+
+            except KeyboardInterrupt:
+                print("\n\nInterrupted. Goodbye!")
+                break
+            except Exception as e:
+                print(f"\nError: {e}\n")
     else:
         # Interactive mode
         print("\nEntering interactive mode. Type 'quit' to exit.\n")
@@ -839,7 +1026,11 @@ def main():
 
                 print()
                 result = agent.run(task)
-                print(f"\nResult: {result}\n")
+                # For v2, result is already displayed in agent output
+                if args.agent_version == "v1":
+                    print(f"\nResult: {result}\n")
+                else:
+                    print()  # Just add a newline for spacing
                 agent.reset()
 
             except KeyboardInterrupt:

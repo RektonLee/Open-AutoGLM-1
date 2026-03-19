@@ -26,6 +26,7 @@ def get_screenshot(
     session_id: str | None = None,
     device_id: str | None = None,
     timeout: int = 10,
+    quality: int = 85,
 ) -> Screenshot:
     """
     Capture a screenshot from the connected iOS device.
@@ -35,6 +36,7 @@ def get_screenshot(
         session_id: Optional WDA session ID.
         device_id: Optional device UDID (for idevicescreenshot fallback).
         timeout: Timeout in seconds for screenshot operations.
+        quality: JPEG quality (1-95, default 85). Lower values = smaller file size.
 
     Returns:
         Screenshot object containing base64 data and dimensions.
@@ -44,21 +46,21 @@ def get_screenshot(
         If both fail, returns a black fallback image.
     """
     # Try WebDriverAgent first (preferred method)
-    screenshot = _get_screenshot_wda(wda_url, session_id, timeout)
+    screenshot = _get_screenshot_wda(wda_url, session_id, timeout, quality)
     if screenshot:
         return screenshot
 
     # Fallback to idevicescreenshot
-    screenshot = _get_screenshot_idevice(device_id, timeout)
+    screenshot = _get_screenshot_idevice(device_id, timeout, quality)
     if screenshot:
         return screenshot
 
     # Return fallback black image
-    return _create_fallback_screenshot(is_sensitive=False)
+    return _create_fallback_screenshot(is_sensitive=False, quality=quality)
 
 
 def _get_screenshot_wda(
-    wda_url: str, session_id: str | None, timeout: int
+    wda_url: str, session_id: str | None, timeout: int, quality: int = 85
 ) -> Screenshot | None:
     """
     Capture screenshot using WebDriverAgent.
@@ -67,6 +69,7 @@ def _get_screenshot_wda(
         wda_url: WebDriverAgent URL.
         session_id: Optional WDA session ID.
         timeout: Timeout in seconds.
+        quality: JPEG quality (1-95, default 85).
 
     Returns:
         Screenshot object or None if failed.
@@ -83,10 +86,23 @@ def _get_screenshot_wda(
             base64_data = data.get("value", "")
 
             if base64_data:
-                # Decode to get dimensions
+                # Decode to get dimensions and re-encode as JPEG
                 img_data = base64.b64decode(base64_data)
                 img = Image.open(BytesIO(img_data))
                 width, height = img.size
+
+                # Convert RGBA to RGB if needed (JPEG doesn't support transparency)
+                if img.mode in ("RGBA", "LA", "P"):
+                    rgb_img = Image.new("RGB", img.size, (255, 255, 255))
+                    if img.mode == "P":
+                        img = img.convert("RGBA")
+                    rgb_img.paste(img, mask=img.split()[-1] if img.mode in ("RGBA", "LA") else None)
+                    img = rgb_img
+
+                # Re-encode as JPEG with specified quality
+                buffered = BytesIO()
+                img.save(buffered, format="JPEG", quality=quality)
+                base64_data = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
                 return Screenshot(
                     base64_data=base64_data,
@@ -104,7 +120,7 @@ def _get_screenshot_wda(
 
 
 def _get_screenshot_idevice(
-    device_id: str | None, timeout: int
+    device_id: str | None, timeout: int, quality: int = 85
 ) -> Screenshot | None:
     """
     Capture screenshot using idevicescreenshot (libimobiledevice).
@@ -112,6 +128,7 @@ def _get_screenshot_idevice(
     Args:
         device_id: Optional device UDID.
         timeout: Timeout in seconds.
+        quality: JPEG quality (1-95, default 85).
 
     Returns:
         Screenshot object or None if failed.
@@ -135,8 +152,16 @@ def _get_screenshot_idevice(
             img = Image.open(temp_path)
             width, height = img.size
 
+            # Convert RGBA to RGB if needed (JPEG doesn't support transparency)
+            if img.mode in ("RGBA", "LA", "P"):
+                rgb_img = Image.new("RGB", img.size, (255, 255, 255))
+                if img.mode == "P":
+                    img = img.convert("RGBA")
+                rgb_img.paste(img, mask=img.split()[-1] if img.mode in ("RGBA", "LA") else None)
+                img = rgb_img
+
             buffered = BytesIO()
-            img.save(buffered, format="PNG")
+            img.save(buffered, format="JPEG", quality=quality)
             base64_data = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
             # Cleanup
@@ -156,12 +181,13 @@ def _get_screenshot_idevice(
     return None
 
 
-def _create_fallback_screenshot(is_sensitive: bool) -> Screenshot:
+def _create_fallback_screenshot(is_sensitive: bool, quality: int = 85) -> Screenshot:
     """
     Create a black fallback image when screenshot fails.
 
     Args:
         is_sensitive: Whether the failure was due to sensitive content.
+        quality: JPEG quality (1-95, default 85).
 
     Returns:
         Screenshot object with black image.
@@ -171,7 +197,7 @@ def _create_fallback_screenshot(is_sensitive: bool) -> Screenshot:
 
     black_img = Image.new("RGB", (default_width, default_height), color="black")
     buffered = BytesIO()
-    black_img.save(buffered, format="PNG")
+    black_img.save(buffered, format="JPEG", quality=quality)
     base64_data = base64.b64encode(buffered.getvalue()).decode("utf-8")
 
     return Screenshot(

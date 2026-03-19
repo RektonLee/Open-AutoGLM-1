@@ -4,10 +4,12 @@
 MESSAGES_ZH = {
     "thinking": "思考过程",
     "action": "执行动作",
+    "observation": "执行结果",
     "task_completed": "任务完成",
     "done": "完成",
     "starting_task": "开始执行任务",
     "final_result": "最终结果",
+    "final_summary": "最终总结",
     "task_result": "任务结果",
     "confirmation_required": "需要确认",
     "continue_prompt": "是否继续？(y/n)",
@@ -23,16 +25,24 @@ MESSAGES_ZH = {
     "time_to_first_token": "首 Token 延迟 (TTFT)",
     "time_to_thinking_end": "思考完成延迟",
     "total_inference_time": "总推理时间",
+    "messages_saved": "对话记录已保存至",
+    # 特殊标签相关
+    "waiting_user": "等待用户处理...",
+    "need_confirm": "敏感操作需要用户确认",
+    "need_input": "需要用户输入",
+    "request_refused": "请求因安全策略被拒绝",
 }
 
 # English messages
 MESSAGES_EN = {
     "thinking": "Thinking",
     "action": "Action",
+    "observation": "Observation",
     "task_completed": "Task Completed",
     "done": "Done",
     "starting_task": "Starting task",
     "final_result": "Final Result",
+    "final_summary": "Final Summary",
     "task_result": "Task Result",
     "confirmation_required": "Confirmation Required",
     "continue_prompt": "Continue? (y/n)",
@@ -48,6 +58,12 @@ MESSAGES_EN = {
     "time_to_first_token": "Time to First Token (TTFT)",
     "time_to_thinking_end": "Time to Thinking End",
     "total_inference_time": "Total Inference Time",
+    "messages_saved": "Messages saved to",
+    # Special tag related
+    "waiting_user": "Waiting for user to handle...",
+    "need_confirm": "Sensitive action requires user confirmation",
+    "need_input": "User input required",
+    "request_refused": "Request refused due to policy violation",
 }
 
 
